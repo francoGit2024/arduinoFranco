@@ -11,7 +11,7 @@
 #include <ModbusMaster.h>
 
 // Información del dispositivo
-const char* ssidFL="FLB1146";
+const char* ssidFL="FLB1089";
 const char* codModelo = "friolinkB";
 const char* modeloFL = "Friolink-B";
 const char* VERSION = "3.0.1";
@@ -51,6 +51,8 @@ const char* HVERSION = "3.0.H5C";
 #define staticGateway_default "0.0.0.0"
 #define staticSubnet_default "255.255.255.0"
 #define staticDNS_default "0.0.0.0"
+#define EEPROM_MAGIC 0x46524C42u
+#define EEPROM_VERSION 1
 
 ////Direcciones por defecto Dixell XR06CH
 #define addr_Probe1_default 257
@@ -66,79 +68,6 @@ const char* HVERSION = "3.0.H5C";
 #define addr_w_SetPoint_default 1539
 #define addr_w_Status_default 512
 
-//Direcciones por defecto Dixell XR75CH
-//#define addr_Probe1_default 264
-//#define addr_SetPoint_default 886
-//#define addr_StatusOn_default 512
-//#define addr_Defrost_default 513
-//#define addr_PtaAbierta_default 519
-//#define addr_ErrorPb1_default 520
-//#define addr_ErrorPb2_default 521
-//#define addr_AltoValorPb1_default 524
-//#define addr_BajoValorPb1_default 525
-//#define addr_Compressor_default 542
-//#define addr_w_SetPoint_default 886
-//#define addr_w_Status_default 512
-
-//Direcciones por defecto Danfoss AK-CC55
-//#define addr_Probe1_default 2530
-//#define addr_SetPoint_default 2612
-//#define addr_StatusOn_default 116
-//#define addr_Defrost_default 2511
-//#define addr_PtaAbierta_default 20009
-//#define addr_ErrorPb1_default 20002
-//#define addr_ErrorPb2_default 20003
-//#define addr_AltoValorPb1_default 20007
-//#define addr_BajoValorPb1_default 20008
-//#define addr_Compressor_default 2684
-//#define addr_w_SetPoint_default 2612
-//#define addr_w_Status_default 116
-
-//Funciones de lectura Dixell XR06CH
-#define func_Probe1_default       FC03_HOLD
-#define func_SetPoint_default     FC03_HOLD
-#define func_StatusOn_default     FC01_COIL
-#define func_Defrost_default      FC01_COIL
-#define func_PtaAbierta_default   FC01_COIL
-#define func_ErrorPb1_default     FC01_COIL
-#define func_ErrorPb2_default     FC01_COIL
-#define func_AltoValorPb1_default FC01_COIL
-#define func_BajoValorPb1_default FC01_COIL
-#define func_Compressor_default   FC01_COIL
-//Funciones de escritura Dixell XR06CH
-#define func_w_SetPoint_default   FC06_WSR
-#define func_w_Status_default     FC05_WSC
-
-//Funciones de lectura Dixell XR75CH
-//#define func_Probe1_default       FC03_HOLD
-//#define func_SetPoint_default     FC03_HOLD
-//#define func_StatusOn_default     FC01_COIL
-//#define func_Defrost_default      FC01_COIL
-//#define func_PtaAbierta_default   FC01_COIL
-//#define func_ErrorPb1_default     FC01_COIL
-//#define func_ErrorPb2_default     FC01_COIL
-//#define func_AltoValorPb1_default FC01_COIL
-//#define func_BajoValorPb1_default FC01_COIL
-//#define func_Compressor_default   FC01_COIL
-////Funciones de escritura Dixell XR06CH
-//#define func_w_SetPoint_default   FC06_WSR
-//#define func_w_Status_default     FC05_WSC
-
-//Funciones de lectura Danfoss AK-CC55
-//#define func_Probe1_default       FC03_HOLD
-//#define func_SetPoint_default     FC03_HOLD
-//#define func_StatusOn_default     FC03_HOLD
-//#define func_Defrost_default      FC03_HOLD
-//#define func_PtaAbierta_default   FC03_HOLD
-//#define func_ErrorPb1_default     FC02_DI
-//#define func_ErrorPb2_default     FC02_DI
-//#define func_AltoValorPb1_default FC03_HOLD
-//#define func_BajoValorPb1_default FC03_HOLD
-//#define func_Compressor_default   FC03_HOLD
-//Funciones de escritura Danfoss AK-CC55
-//#define func_w_SetPoint_default   FC06_WSR
-//#define func_w_Status_default     FC05_WSC
-
 // Timeouts y intervalos (en milisegundos)
 const unsigned long WIFI_TIMEOUT = 10000; //10s
 const unsigned long WIFI_CHECK_INTERVAL = 30000; //30s
@@ -149,33 +78,33 @@ unsigned long CONFIG_MODE_TIMEOUT = 120000; //2min
 /*Para mantenimiento*/
 const char* PREFERRED_SSID     = "APPControlOrionSI";
 const char* PREFERRED_PASSWORD = "12345678";
-bool mantenimiento = false;          // ya la tenés
+bool mantenimiento = false;
 bool mantEsperandoAck = false;
 unsigned long mantDeadline = 0;
-const unsigned long MANT_TIMEOUT_MS = 5000; // 10 s para esperar respuesta
-const unsigned long MANT_REPUBLISH_MS = 5000;  // reintentar ping cada 30s
+const unsigned long MANT_TIMEOUT_MS = 5000;
+const unsigned long MANT_REPUBLISH_MS = 5000;
 unsigned long mantNextPublish = 0;
-String conexDixell = "SINREVISAR";  // Inicial
-String señalesOK = "";             // Señales leídas con éxito
-String señalesError = "";          // Señales que fallaron
+String conexDixell = "SINREVISAR";
+String señalesOK = "";
+String señalesError = "";
 
 // ======================== PARA DETECTAR FAMILIA Y VERSIONES ===============================================
-enum ModbusPingResult { 
-  MB_PING_OK = 0, 
-  MB_PING_SLAVE_ERROR, // incluye BUSY 
-  MB_PING_TIMEOUT, 
-  MB_PING_ERROR 
+enum ModbusPingResult {
+  MB_PING_OK = 0,
+  MB_PING_SLAVE_ERROR,
+  MB_PING_TIMEOUT,
+  MB_PING_ERROR
 };
 
 struct DixellRawFingerprint {
-  uint8_t  familyCode;        // 0xFF si no existe
-  uint8_t  firmware;          // 0xFF si no existe
+  uint8_t  familyCode;
+  uint8_t  firmware;
 
   bool     reg0Readable;
   bool     setpointReadable;
   bool     inputRegReadable;
 
-  uint8_t  lastException;     // código Modbus crudo
+  uint8_t  lastException;
   uint16_t responseTimeMs;
 
   uint32_t baudrate;
@@ -184,7 +113,6 @@ struct DixellRawFingerprint {
 DixellRawFingerprint g_dixellFp;
 bool g_dixellCached = false;
 unsigned long g_dixellCachedAt = 0;
-
 
 // Estados del sistema
 enum SystemState {
@@ -205,7 +133,7 @@ enum ErrorCode {
   ERROR_CONFIG_TIMEOUT
 };
 
-//Para verificar la conexion con el dispositivo (lo hacemos solo en el momento de configuracion, ver si hace falta hacerlo en algun otro momento)
+// Verificación Modbus
 enum VerificationState {
   VER_IDLE,
   VER_PROBE1,
@@ -221,7 +149,6 @@ enum VerificationState {
   VER_COMPLETE
 };
 
-// Variables globales para la verificación
 VerificationState verificationState = VER_IDLE;
 unsigned long lastVerificationTime = 0;
 int verificationSuccessCount = 0;
@@ -229,7 +156,6 @@ int verificationTotalCount = 0;
 String verificationResults = "";
 bool verificationInProgress = false;
 
-// Estructura para resultados de verificación
 struct VerificationResult {
   bool ok_Probe1 = false;
   bool ok_SetPoint = false;
@@ -246,29 +172,29 @@ struct VerificationResult {
 VerificationResult verResult;
 
 // ======================== VARIABLES GLOBALES ========================
-
-// Estado del sistema
 SystemState currentState = STATE_NORMAL_OPERATION;
 ErrorCode lastError = ERROR_NONE;
 bool config_mode = false;
 
-// Buffers reutilizables (reducción de memoria)
 char jsonBuffer[256];
 char topicBuffer[128];
 char ap_ssid[32];
-char ap_diag_ssid[32]; // Buffer para el SSID completo
+char ap_diag_ssid[32];
 
-// Tipos de función Modbus que puede usar cada dirección
 enum ModbusFunc : uint8_t {
-  FC01_COIL = 1,    // Read Coils
-  FC02_DI   = 2,    // Read Discrete Inputs
-  FC03_HOLD = 3,    // Read Holding Registers
-  FC04_INPUT = 4,    // Read Input Registers
-  FC05_WSC = 5,   // Write Single Coils
-  FC06_WSR = 6    // Write Single Registers
+  FC01_COIL = 1,
+  FC02_DI   = 2,
+  FC03_HOLD = 3,
+  FC04_INPUT = 4,
+  FC05_WSC = 5,
+  FC06_WSR = 6
 };
 
-// Estructura para datos de configuración
+struct EepromHeader {
+  uint32_t magic;
+  uint16_t version;
+};
+
 struct ConfigData {
   char Probe1[64];
   char SetPoint[64];
@@ -305,7 +231,6 @@ struct ConfigData {
   char staticGateway[16];
   char staticSubnet[16];
   char staticDNS[16];
-  // Tipo de función Modbus asociada a cada dirección
   ModbusFunc func_Probe1;
   ModbusFunc func_SetPoint;
   ModbusFunc func_StatusOn;
@@ -332,7 +257,7 @@ enum ModbusReadState {
   READING_ALTOVALORPB1,
   READING_BAJOVALORPB1,
   READING_COMPRESSOR,
-  ALL_READINGS_DONE // Estado final
+  ALL_READINGS_DONE
 };
 
 struct SensorReadStatus {
@@ -346,60 +271,11 @@ struct SensorReadStatus {
   bool ok_AltoValorPb1 = false;
   bool ok_BajoValorPb1 = false;
   bool ok_Compressor = false;
-  bool cycleComplete = false; // Indica si el ciclo de lectura ha terminado
+  bool cycleComplete = false;
 };
 
-// Configuración
-ConfigData config = {
-  "",  // Probe1
-  "",  // SetPoint
-  "",  // StatusOn
-  "",  // Defrost
-  "",  // PtaAbierta
-  "",  // ErrorPb1
-  "",  // ErrorPb2
-  "",  // AltoValorPb1
-  "",  // BajoValorPb1
-  "",  // Compressor
-  ssidDefecto,  //stored_ssid
-  passWIFI,  //stored_password
-  tokenDefecto,  //tokenDispositivo
-  mqtt_server_default,  // mqtt_server
-  mqtt_port_default,  // mqtt_port
-  licActual_default,  // licenciaActual
-  tiempoIntervalo_default,  // tiempoIntervalo --5m
-  addr_Probe1_default,
-  addr_SetPoint_default,
-  addr_StatusOn_default,
-  addr_Defrost_default,
-  addr_PtaAbierta_default,
-  addr_ErrorPb1_default,
-  addr_ErrorPb2_default,
-  addr_AltoValorPb1_default,
-  addr_BajoValorPb1_default,
-  addr_Compressor_default,
-  addr_w_SetPoint_default,
-  addr_w_Status_default,
-  passDiag_default, // passDiag
-  useStaticIP_default,     // useStaticIP (por defecto, usar DHCP)
-  staticIP_default, // staticIP
-  staticGateway_default, // staticGateway
-  staticSubnet_default, // staticSubnet
-  staticDNS_default, // staticDNS
-  func_Probe1_default, 
-  func_SetPoint_default,
-  func_StatusOn_default, 
-  func_Defrost_default,
-  func_PtaAbierta_default, 
-  func_ErrorPb1_default,
-  func_ErrorPb2_default, 
-  func_AltoValorPb1_default,
-  func_BajoValorPb1_default, 
-  func_Compressor_default,
-  func_w_SetPoint_default, 
-  func_w_Status_default,
-  0  // checksum
-};
+// Configuración inicializada a cero; loadConfigFromEEPROM aplicará defaults si corresponde
+ConfigData config = {};
 
 static const char* mqttRcToText(int rc) {
   switch (rc) {
@@ -423,7 +299,6 @@ unsigned long lastWifiCheck = 0;
 unsigned long lastConfigModeStart = 0;
 unsigned int msEntreSolicitudes=75;
 
-// Gestión de reconexión con backoff exponencial
 unsigned long wifiRetryDelay = 5000;
 unsigned long lastWifiRetry = 0;
 unsigned long mqttRetryDelay = 5000;
@@ -433,32 +308,27 @@ int mqttRetryCount = 0;
 int lastStationCount=0;
 int cuentaMantenimiento=0;
 int cuentaErroresTotales=0;
-char erroresBufferMant[512]; // Puede ser más grande si hay muchos errores
+char erroresBufferMant[512];
 bool huboErrorMant = false;
 SensorReadStatus sensorStatus;
 ModbusReadState modbusReadState = READING_DEFROST;
 bool seguirLeyendoEnConfig=false;
 
 // ======================== OBJETOS ========================
-// Conectividad
 ESP8266WebServer server(80);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-// Ticker para watchdog
 Ticker wdtTicker;
 
-// Definir pines para SoftwareSerial
-#define RS485_RO D7   // RX desde el módulo
-#define RS485_DI D5   // TX hacia el módulo
+#define RS485_RO D7
+#define RS485_DI D5
 
-// Crear objeto SoftwareSerial
 SoftwareSerial modbusSerial(RS485_RO, RS485_DI);
 
-// Crear instancia del maestro Modbus
 ModbusMaster node;
 
-// ======================== DECLARACION DE FUNCIONES QUE SE DESARROLLAR MAS ADELANTE ========================
+// Declaraciones
 void resetWatchdog();
 void loadConfigFromEEPROM();
 void saveConfigToEEPROM();
@@ -508,53 +378,48 @@ bool readCoil(uint16_t address, uint16_t &data);
 void callbackMQTTMant(char* topic, byte* payload, unsigned int length);
 
 void setup() {
-  //resetToFactory();
-  //return;
   #if DEBUG_MODE
     delay(2000);
   #endif
-  
+
   Serial.begin(115200);
   mqttClient.setBufferSize(512);
-  DEBUG_PRINTLN("\n=== "+String(modeloFL)+" v" + String(VERSION) + " ===");
-  
-  // Inicializar watchdog
+  {
+    char verBuf[64];
+    snprintf(verBuf, sizeof(verBuf), "\n=== %s v%s ===", modeloFL, VERSION);
+    DEBUG_PRINTLN(verBuf);
+  }
+
   wdtTicker.attach(1, resetWatchdog);
-  
+
   setupWiFi();
 
-  // Inicializar el nodo Modbus
   modbusSerial.begin(9600);
-  node.begin(1, modbusSerial); // Dirección del esclavo Modbus (Dixel)
+  node.begin(1, modbusSerial);
 
-  /*Leemos la familia y modelo del dispositivo*/
   DixellRawFingerprint fp;
   bool dixellOk = getDixellFingerprintCached(fp);
-  
+
   if (tryPreferredAPAndSend()) {
     DEBUG_PRINTLN("Flujo APPControlOrionSI completado. No se continúa con startNormalMode ni ConfigMode.");
-    return;   // 🚨 corta acá: no sigue con la lógica normal
-  }
-  
-  if (tryPreferredAPAndSend()) {
-    DEBUG_PRINTLN("Flujo APPControlOrionSI completado. No se continúa con startNormalMode ni ConfigMode.");
-    return;   // 🚨 corta acá: no sigue con la lógica normal
+    return;
   }
 
-  // Cargar configuración
-  EEPROM.begin(sizeof(ConfigData) + 100); // Margen extra
+  EEPROM.begin(sizeof(EepromHeader) + sizeof(ConfigData) + 16);
   loadConfigFromEEPROM();
-  
-  // Generar SSID único
-  String randomDigits = String(random(10000, 99999));
-  String ssid_full = String(ssidFL);// + randomDigits;
-  ssid_full.toCharArray(ap_ssid, sizeof(ap_ssid));
+
+  {
+    char ssid_full[32];
+    snprintf(ssid_full, sizeof(ssid_full), "%s", ssidFL);
+    ssid_full[sizeof(ssid_full)-1] = '\0';
+    strncpy(ap_ssid, ssid_full, sizeof(ap_ssid) - 1);
+    ap_ssid[sizeof(ap_ssid)-1] = '\0';
+  }
   DEBUG_PRINTLN(config.stored_ssid);
   DEBUG_PRINTLN(config.stored_password);
   DEBUG_PRINTLN(config.tokenDispositivo);
   DEBUG_PRINTLN("Setup completado");
-  
-  // Intentar conexión WiFi si hay credenciales
+
   if (strlen(config.stored_ssid) > 0) {
     DEBUG_PRINTLN("Credenciales encontradas. Intentando conexión en modo WIFI_STA...");
     startNormalMode();
@@ -565,57 +430,43 @@ void setup() {
 }
 
 void loop() {
-  //clearEEPROM();
-  // put your main code here, to run repeatedly:
   unsigned long currentTime = millis();
 
   if (currentState == STATE_MAINTENANCE) {
     handleMaintenance(currentTime);
     yield();
-    return;   // 🚨 nunca ejecuta el flujo normal mientras exista mantenimiento
+    return;
   }
-  
+
   if (mantenimiento) {
-    // Mantener MQTT vivo y escuchar
     if (mqttClient.connected()) mqttClient.loop();
 
     if (mantEsperandoAck) {
       if (millis() > mantDeadline) {
         DEBUG_PRINTLN("⏱️ Timeout esperando ACK de mantenimiento.");
         mantEsperandoAck = false;
-        // decidir qué hacer: reintentar, reiniciar, etc.
       }
-      // Importante: NO return aquí. Dejá que loop siga llamándose
-      // para que mqttClient.loop() procese callbacks.
       yield();
-      return; // si DE VERDAD no querés que corra nada más del loop normal
+      return;
     }
-  // Si llegó el ACK o terminó el timeout, podés decidir:
-    //  - Quedarte en mantenimiento
-    //  - O bien terminar mantenimiento y seguir flujo normal
-    // Ejemplo: terminar mantenimiento y reiniciar flujo normal:
     DEBUG_PRINTLN("Fin mantenimiento. Continuando con flujo normal.");
     mantenimiento = false;
-    // opcional: mqttClient.disconnect(); WiFi.disconnect(true);
-    // y dejar que el estado normal siga abajo…
   }
-  
-  // Máquina de estados principal
+
   switch (currentState) {
     case STATE_CONFIG_MODE:
       handleConfigMode();
       break;
-      
+
     case STATE_NORMAL_OPERATION:
       handleNormalOperation(currentTime);
       break;
-      
+
     case STATE_WIFI_RECONNECT:
       handleWifiReconnect();
       break;
-      
+
     case STATE_MQTT_RECONNECT:
-      // Manejado en handleNormalOperation
       currentState = STATE_NORMAL_OPERATION;
       break;
 
@@ -623,15 +474,13 @@ void loop() {
       handleConfigMode();
       break;
   }
-  
-  // Mantener conexión MQTT activa (no bloqueante)
+
   if (mqttClient.connected()) {
     mqttClient.loop();
   }
 
-  // Mantener el servidor web activo en cualquier modo
   server.handleClient();
-  
-  // Yield para el sistema
-  yield();  
+
+  yield();
 }
+
