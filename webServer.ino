@@ -38,21 +38,20 @@ String user_code = "";
 
 void handleRoot() {
   if (currentState == STATE_NORMAL_OPERATION) {
-    // Si estamos en modo normal, mostrar la página de diagnóstico
     String htmlDiag = getDiagnosticPageHTML();
-    server.send(200, "text/html", htmlDiag);
+    server.send(200, "text/html", htmlDiag.c_str());
     return;
   }
-  
+
   current_page = 1;
   String htmlIntro = getIntroPageHTML();
-  server.send(200, "text/html", htmlIntro);
+  server.send(200, "text/html", htmlIntro.c_str());
 }
 
 void handleIntro() {
   current_page = 1;
   String htmlRoot = getIntroPageHTML();
-  server.send(200, "text/html", htmlRoot);
+  server.send(200, "text/html", htmlRoot.c_str());
 }
 
 void handleScanPage() {
@@ -61,43 +60,42 @@ void handleScanPage() {
   server.send(200, "text/html", "");
   server.sendContent_P(scanPageHeader);
 }
-      
+
 void handleCredentials() {
   current_page = 3;
-  // Tomar ssid de la query si viene, y guardarlo (como ya hacías)
   if (server.hasArg("ssid")) {
     selected_ssid = server.arg("ssid");
   }
-  String rssiWarningHtml = "";
+
+  char rssiWarningHtml[128];
+  rssiWarningHtml[0] = '\0';
   if (server.hasArg("rssi")) {
     int rssi = server.arg("rssi").toInt();
     if (rssi < -64) {
-      rssiWarningHtml = "<div class='warning-message'><strong>⚠️ Advertencia:</strong> La señal de esta red es débil ("
-                     + String(rssi) + " dBm). Puede haber cortes o una conexión inestable.</div>";
+      snprintf(rssiWarningHtml, sizeof(rssiWarningHtml),
+        "<div class='warning-message'><strong>⚠️ Advertencia:</strong> La señal de esta red es débil (%d dBm). Puede haber cortes o una conexión inestable.</div>",
+        rssi);
     }
   }
 
-  // Envío chunked desde PROGMEM
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, "text/html", "");
 
-  // <title>Credenciales - [modeloFL]</title>
   server.sendContent_P(credPageA);
   yield();
   server.sendContent_P(credPageB);
   yield();
-  server.sendContent(String(ssidFL));
+  server.sendContent(ssidFL);
   yield();
   server.sendContent_P(credPageB1);
   yield();
 
-  // “Red seleccionada: [selected_ssid]”
-  server.sendContent(selected_ssid);
+  server.sendContent(selected_ssid.c_str());
   yield();
 
-  if (rssiWarningHtml!=""){
+  if (rssiWarningHtml[0] != '\0') {
     server.sendContent(rssiWarningHtml);
-    yield();  
+    yield();
   }
   server.sendContent_P(credPageC);
   yield();
@@ -130,13 +128,14 @@ void handleResult() {
 
   if (connection_success) {
     server.sendContent_P(resultPageSuccessConfFin);
-    server.sendContent(String(config.stored_ssid)); // Enviar la parte dinámica
+    server.sendContent(config.stored_ssid);
     server.sendContent_P(resultPageSuccessMiddleConfFin);
   } else {
     server.sendContent_P(resultPageErrorConfFin);
-    server.sendContent(String(selected_ssid)); // Enviar la parte dinámica
+    server.sendContent(selected_ssid.c_str());
     server.sendContent_P(resultPageErrorMiddleConfFin);
-    server.sendContent(String(getWiFiStatusString())); // Enviar la parte dinámica
+    String wifiStatus = getWiFiStatusString();
+    server.sendContent(wifiStatus.c_str());
     server.sendContent_P(resultPageErrorEndConfFin);
   }
 
@@ -145,8 +144,7 @@ void handleResult() {
   if (connection_success) {
     server.sendContent_P(resultPageCountdownConfFin);
   }
-  
-  // Cerrar la conexión
+
   server.sendContent("");
 
   DEBUG_PRINT("Free Heap después de enviar página: ");
@@ -160,14 +158,20 @@ void handleRestart() {
 }
 
 void handleStatus() {
-  String json = "{";
-  json += "\"mode\":\"" + String(config_mode ? "config" : "normal") + "\",";
-  json += "\"wifi_status\":\"" + getWiFiStatusString() + "\",";
-  json += "\"ip\":\"" + (WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "No conectado") + "\",";
-  json += "\"stored_ssid\":\"" + String(config.stored_ssid) + "\"";
-  json += "}";
-  
-  server.send(200, "application/json", json);
+  StaticJsonDocument<256> doc;
+  doc["mode"] = config_mode ? "config" : "normal";
+  doc["wifi_status"] = getWiFiStatusString();
+  if (WiFi.status() == WL_CONNECTED) {
+    doc["ip"] = WiFi.localIP().toString();
+  } else {
+    doc["ip"] = "No conectado";
+  }
+  doc["stored_ssid"] = config.stored_ssid;
+
+  char buf[512];
+  size_t n = serializeJson(doc, buf, sizeof(buf));
+  (void)n;
+  server.send(200, "application/json", buf);
 }
 
 void handleNotFound() {
@@ -177,13 +181,13 @@ void handleNotFound() {
 void handleRootConf() {
   current_page = 1;
   String htmlIntro = getIntroPageHTMLConf();
-  server.send(200, "text/html", htmlIntro);
+  server.send(200, "text/html", htmlIntro.c_str());
 }
 
 void handleIntroConf() {
   current_page = 1;
   String htmlRoot = getIntroPageHTMLConf();
-  server.send(200, "text/html", htmlRoot);
+  server.send(200, "text/html", htmlRoot.c_str());
 }
 
 void handleScanPageConf() {
@@ -195,42 +199,40 @@ void handleScanPageConf() {
 
 void handleCredentialsConf() {
   current_page = 3;
-  // Tomar ssid de la query si viene, y guardarlo (como ya hacías)
   if (server.hasArg("ssid")) {
     selected_ssid = server.arg("ssid");
   }
-  String rssiWarningHtml = "";
+  char rssiWarningHtml[128];
+  rssiWarningHtml[0] = '\0';
   if (server.hasArg("rssi")) {
     int rssi = server.arg("rssi").toInt();
     if (rssi < -64) {
-      rssiWarningHtml = "<div class='warning-message'><strong>⚠️ Advertencia:</strong> La señal de esta red es débil ("
-                     + String(rssi) + " dBm). Puede haber cortes o una conexión inestable.</div>";
+      snprintf(rssiWarningHtml, sizeof(rssiWarningHtml),
+        "<div class='warning-message'><strong>⚠️ Advertencia:</strong> La señal de esta red es débil (%d dBm). Puede haber cortes o una conexión inestable.</div>",
+        rssi);
     }
   }
-  
-  // Envío chunked desde PROGMEM
+
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(200, "text/html", "");
 
-  // <title>Credenciales - [modeloFL]</title>
   server.sendContent_P(credPageA);
   yield();
   server.sendContent_P(credPageB);
   yield();
-  server.sendContent(String(ssidFL));
+  server.sendContent(ssidFL);
   yield();
   server.sendContent_P(credPageB1);
   yield();
 
-  // “Red seleccionada: [selected_ssid]”
-  server.sendContent(selected_ssid);
+  server.sendContent(selected_ssid.c_str());
   yield();
 
-  if (rssiWarningHtml!=""){
+  if (rssiWarningHtml[0] != '\0') {
     server.sendContent(rssiWarningHtml);
-    yield();  
+    yield();
   }
-  
+
   server.sendContent_P(credPageCConf);
   yield();
   server.sendContent_P(credPageScriptsConf);
@@ -249,10 +251,12 @@ void handleSelectNetworkConf() {
 }
 
 void setupWebServer() {
-  DEBUG_PRINTLN("Token:"+String(config.tokenDispositivo));
-  if (String(config.tokenDispositivo) != "000000000000000000000000"
-        && String(config.tokenDispositivo) !=  "") {
-    // El webServer muestra la pagina para agregar canmbiar la wifi
+  char dbgBuf[128];
+  snprintf(dbgBuf, sizeof(dbgBuf), "Token:%s", config.tokenDispositivo);
+  DEBUG_PRINTLN(dbgBuf);
+
+  if (strcmp(config.tokenDispositivo, "000000000000000000000000") != 0
+        && strlen(config.tokenDispositivo) != 0) {
     server.on("/", handleRoot);
     server.on("/intro", handleIntroConf);
     server.on("/scan-page", handleScanPageConf);
@@ -265,7 +269,6 @@ void setupWebServer() {
     server.on("/status", handleStatus);
     server.onNotFound(handleNotFound);
   } else {
-    // Mostramos las paginas para registrar el dispositivo
     server.on("/", handleRoot);
     server.on("/intro", handleIntro);
     server.on("/scan-page", handleScanPage);
@@ -281,9 +284,9 @@ void setupWebServer() {
 
   server.on("/diagnostic", []() {
     String htmlDiag = getDiagnosticPageHTML();
-    server.send(200, "text/html", htmlDiag);
+    server.send(200, "text/html", htmlDiag.c_str());
   });
-  
+
   server.on("/network-config", handleNetworkConfig);
   server.on("/save_static_ip", handleSaveStaticIP);
   server.on("/save_wifi_client", handleSaveWifiClient);
@@ -293,19 +296,16 @@ void setupWebServer() {
 }
 
 void handleStatusDixellJson() {
-  //String json = "{";
-  //json += "\"dixell_status\":\"" + String(conexDixell) + "\"";
-  //// Añadimos un campo para saber si la verificación ya terminó
-  //json += ",\"dixell_checked\":" + String(conexDixell != "SINREVISAR" ? "true" : "false");
-  //json += "}";
-  String json = "{";
-  json += "\"dixell_status\":\"" + String(conexDixell) + "\"";
-  json += ",\"dixell_checked\":" + String(isVerificationComplete() ? "true" : "false");
-  json += ",\"signals_ok\":\"" + señalesOK + "\"";
-  json += ",\"signals_error\":\"" + señalesError + "\"";
-  json += "}";
-  
-  server.send(200, "application/json", json);
+  StaticJsonDocument<512> doc;
+  doc["dixell_status"] = conexDixell;
+  doc["dixell_checked"] = isVerificationComplete() ? true : false;
+  doc["signals_ok"] = señalesOK;
+  doc["signals_error"] = señalesError;
+
+  char buf[512];
+  size_t n = serializeJson(doc, buf, sizeof(buf));
+  (void)n;
+  server.send(200, "application/json", buf);
 }
 
 void handleSaveStaticIP() {
@@ -317,7 +317,6 @@ void handleSaveStaticIP() {
   String subnet = server.arg("staticSubnet");
   String dns = server.arg("staticDNS");
 
-  // Validación simple de formato de IP
   auto isValidIP = [](const String& s) {
     int dots = 0;
     for (int i = 0; i < s.length(); ++i) {
@@ -333,7 +332,6 @@ void handleSaveStaticIP() {
     return;
   }
 
-  // Guardar en la estructura de configuración
   config.useStaticIP = useStatic;
   strncpy(config.staticIP, ip.c_str(), sizeof(config.staticIP) - 1);
   config.staticIP[sizeof(config.staticIP) - 1] = '\0';
@@ -344,13 +342,12 @@ void handleSaveStaticIP() {
   strncpy(config.staticDNS, dns.c_str(), sizeof(config.staticDNS) - 1);
   config.staticDNS[sizeof(config.staticDNS) - 1] = '\0';
 
-  // Guardar en EEPROM
   saveConfigToEEPROM();
 
-  // Responder al usuario
   server.send(200, "text/html", "<h1>Configuración Guardada</h1><p>El dispositivo se reiniciará para aplicar los cambios. Por favor, espere...</p>");
 
   DEBUG_PRINTLN("Configuración de IP guardada. Reiniciando dispositivo en 2 segundos...");
   delay(2000);
   ESP.restart();
 }
+
